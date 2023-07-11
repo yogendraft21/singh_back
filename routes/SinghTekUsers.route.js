@@ -10,6 +10,7 @@ const User = require("../models/Users.model");
 const multer = require("multer");
 const fs = require("fs");
 const Payment = require("../models/Payment.model");
+const PaymentRequest = require("../models/PaymentRequest.model");
 require("dotenv").config();
 SinghTekRoute.get("/", (req, res) => {
   return res.status(200).json("SinghTek Route");
@@ -167,6 +168,7 @@ SinghTekRoute.patch(
   ]),
   auth,
   async (req, res) => {
+    console.log(req.files.companyPanCard);
     try {
       const { merchantId } = req.params;
 
@@ -177,10 +179,10 @@ SinghTekRoute.patch(
         return res.status(404).json("Merchant not found");
       }
 
-      // Get file paths from the request
-      const companyPanCard = req.files["companyPanCard"][0].path;
-      const companyGST = req.files["companyGST"][0].path;
-      const bankStatement = req.files["bankStatement"][0].path;
+      // Get file paths from the request, or set them as empty strings if no files are uploaded
+      const companyPanCard = req.files["companyPanCard"] ? req.files["companyPanCard"][0].path : "";
+      const companyGST = req.files["companyGST"] ? req.files["companyGST"][0].path : "";
+      const bankStatement = req.files["bankStatement"] ? req.files["bankStatement"][0].path : "";
 
       // Extract data from business_detail
       const businessDetail = JSON.parse(req.body.business_detail);
@@ -227,26 +229,37 @@ SinghTekRoute.patch(
         state,
         country,
       };
-      merchant.kyc_documents = {
-        company_pan_card: companyPanCard,
-        company_gst: companyGST,
-        bank_statement: bankStatement,
-      };
+      
+      // Check if files are provided, otherwise set the fields as empty
+      if (companyPanCard) {
+        merchant.kyc_documents.company_pan_card = companyPanCard;
+      } else {
+        merchant.kyc_documents.company_pan_card = "";
+      }
+      
+      if (companyGST) {
+        merchant.kyc_documents.company_gst = companyGST;
+      } else {
+        merchant.kyc_documents.company_gst = "";
+      }
+      
+      if (bankStatement) {
+        merchant.kyc_documents.bank_statement = bankStatement;
+      } else {
+        merchant.kyc_documents.bank_statement = "";
+      }
 
       // Save the updated merchant to the database
       await merchant.save();
 
-      res
-        .status(200)
-        .json({ message: "Merchant details updated successfully" });
+      res.status(200).json({ message: "Merchant details updated successfully" });
     } catch (error) {
       console.log(error);
-      res
-        .status(500)
-        .json({ error: "An error occurred during merchant details update" });
+      res.status(500).json({ error: "An error occurred during merchant details update" });
     }
   }
 );
+
 
 SinghTekRoute.post("/merchant/register/full", auth, async (req, res) => {
   try {
@@ -663,12 +676,12 @@ SinghTekRoute.patch("/update/withdrawals", async (req, res) => {
   }
 });
 
-
 SinghTekRoute.get("/fetch/amount/requests",async(req,res)=>{
      try {
-      // const /  
+        const requests  = await PaymentRequest.find({ subAdmin_id: req.body.userId})
+        return res.status(200).json(requests)
      } catch (error) {
-      
+        return res.status(500).json({"error":error})
      }
 })
 
